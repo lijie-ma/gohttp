@@ -54,6 +54,13 @@ func (lib *HTTPLib) SetProxy(proxy string) {
 
 }
 
+func (lib *HTTPLib) defaultHeader() http.Header {
+	return http.Header{
+		"Content-Type": []string{"application/x-www-form-urlencoded"},
+		"User-Agent":   []string{"Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"},
+	}
+}
+
 func (lib *HTTPLib) CheckRedirect(fu func(req *http.Request, via []*http.Request) error) {
 	lib.client.CheckRedirect = fu
 }
@@ -68,7 +75,11 @@ func (lib *HTTPLib) Do() error {
 		return err
 	}
 	defer request.Body.Close()
-	request.Header = lib.header
+	if 0 == len(lib.header) {
+		request.Header = lib.defaultHeader()
+	} else {
+		request.Header = lib.header
+	}
 	lib.response, err = lib.client.Do(request)
 	if nil != err {
 		return err
