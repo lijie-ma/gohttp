@@ -5,13 +5,9 @@ go 模拟登录
 
 ```golang
 jar := httplib.DefaultCookieJar()
-httpClient := httplib.NewHTTPLib(ads.spider.Login, http.MethodPost,
+httpClient := httplib.NewHTTPLib(`http://127.0.0.1/login`, http.MethodPost,
 		map[string]interface{}{"id": id, "password": pwd})
 httpClient.SetCookieJar(jar)
-httpClient.SetHeader(http.Header{
-	"Content-Type": []string{"application/x-www-form-urlencoded"},
-	"User-Agent":   []string{"Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"},
-})
 err := httpClient.Do()
 if nil != err {
 	return
