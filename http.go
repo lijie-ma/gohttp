@@ -33,8 +33,14 @@ func NewHTTPLib(url string, method string, param interface{}) *HTTPLib {
 	}
 }
 
-func DefaultCookieJar() *cookiejar.Jar {
-	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+//DefaultCookieJar 设置默认jar
+// domain 默认空
+func DefaultCookieJar(domain ...string) *cookiejar.Jar {
+	list := publicsuffix.List
+	if 0 < len(domain) {
+		list.PublicSuffix(domain[0])
+	}
+	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: list})
 	return jar
 }
 
