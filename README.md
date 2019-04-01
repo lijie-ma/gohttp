@@ -3,7 +3,7 @@ go 模拟登录
 
 ## 安装
 ```
-go get github.com/lijie-ma/httplib
+go get -u github.com/lijie-ma/httplib
 ```
 
 ## demo
