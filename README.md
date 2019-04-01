@@ -1,5 +1,10 @@
-# go-httplib
+# httplib
 go 模拟登录
+
+## 安装
+```
+go get github.com/lijie-ma/httplib
+```
 
 ## demo
 
