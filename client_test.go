@@ -1,29 +1,37 @@
 package gohttp
 
 import (
-	"io/ioutil"
 	"net/http"
 	"testing"
 )
 
-
 func TestClient_Post(t *testing.T) {
 	v := map[string]interface{}{
-		"form_params" : map[string]interface{}{
-			"key" :"ivideo_index",
+		"form_params": map[string]interface{}{
+			"key": "ivideo_index",
 		},
 		"proxy": "http://127.0.0.1:8888",
 	}
 	c := NewClient(v)
-	resp, err := c.Post("http://10.16.155.5:8090/cms/getone",nil)
+	resp, err := c.Post("http://10.16.155.5:8090/cms/getone", nil)
 	t.Log(err)
-	b, e := ioutil.ReadAll(resp.Body)
-	t.Log(string(b), e)
+	t.Log(resp.Body)
+
+	v2 := map[string]interface{}{
+		"json": map[string]interface{}{
+			"key": "ivideo_index",
+		},
+		"proxy": "http://127.0.0.1:8888",
+	}
+	c2 := NewClient(v2)
+	resp, err = c2.Post("http://192.168.56.102/test.php", nil)
+	t.Log(err)
+	t.Log(resp.Body)
 }
 
 func TestGet(t *testing.T) {
 	config := map[string]interface{}{
-		"headers" : map[string][]string {
+		"headers": map[string][]string{
 			"ua": []string{"cc", "ddd"},
 		},
 	}

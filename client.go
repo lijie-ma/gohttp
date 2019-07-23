@@ -2,13 +2,13 @@ package gohttp
 
 import (
 	"encoding/json"
+	"github.com/lijie-ma/utility"
 	"io"
 	"net/http"
 	"net/url"
 	"runtime"
 	"strings"
 	"time"
-	"github.com/lijie-ma/utility"
 )
 
 const (
@@ -63,14 +63,20 @@ func (c *Client) defaultHeaders(config map[string]interface{}) {
 	}
 }
 
-func (c *Client) request(method string, uri string, option map[string]interface{}) (*http.Response, error) {
+func (c *Client) request(method string, uri string, option map[string]interface{}) (*Response, error) {
 	request, err := http.NewRequest(method, uri, c.requestBody(option))
 	if nil != err {
 		return nil, err
 	}
 	c.setRequestHeader(request, option)
 	response, err := c.getHttpClient(option).Do(request)
-	return response, err
+	if nil != err {
+		return nil, err
+	}
+	resp := &Response{}
+	resp.Response = response
+	resp.setBody()
+	return resp, err
 }
 
 func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
@@ -126,11 +132,11 @@ func (c *Client) prepareDefaults(option map[string]interface{}) map[string]inter
 	return option
 }
 
-func (c *Client) Post(uri string, options map[string]interface{}) (*http.Response, error) {
+func (c *Client) Post(uri string, options map[string]interface{}) (*Response, error) {
 	return c.request("POST", uri, options)
 }
 
-func (c *Client) Get(uri string, options map[string]interface{})(*http.Response, error) {
+func (c *Client) Get(uri string, options map[string]interface{}) (*Response, error) {
 	return c.request("GET", uri, options)
 }
 
