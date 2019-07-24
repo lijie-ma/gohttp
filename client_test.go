@@ -1,7 +1,6 @@
 package gohttp
 
 import (
-	"net/http"
 	"testing"
 )
 
@@ -110,30 +109,26 @@ func TestOption(t *testing.T) {
 	t.Log("option\t", resp.Body)
 }
 
-func TestGet(t *testing.T) {
-	config := map[string]interface{}{
-		"headers": map[string][]string{
-			"ua": []string{"cc", "ddd"},
+func TestCookie(t *testing.T) {
+	v2 := map[string]interface{}{
+		"json": map[string]interface{}{
+			"key": "ivideo_index",
 		},
+		"proxy": "http://127.0.0.1:8888",
+		"cookies": true,
 	}
-	headers := http.Header{}
-	if _, ok := config["headers"]; !ok {
-		headers.Set("User-Agent", defaultUserAgent())
-		config["headers"] = headers
-	} else {
-		tmp := config["headers"]
-		switch tmp.(type) {
-		case []map[string]string:
-			for _, hh := range tmp.([]map[string]string) {
-				for k, v := range hh {
-					headers.Add(k, v)
-				}
-			}
-		case map[string][]string:
-			headers = http.Header(tmp.(map[string][]string))
-		}
-		delete(config, "headers")
-		config["headers"] = headers
+	option2 := map[string]interface{}{
+		"json": `{"key":"value"}`,
 	}
-	t.Log(config)
+	c2 := NewClient(v2)
+	resp := c2.Post("http://192.168.56.102/s1.php", nil)
+
+	option2["cookies"] = resp.Cookies()
+	resp = c2.Post("http://192.168.56.102/s2.php", option2)
+	t.Log("Cookie\t", resp.Body)
+	////close cookies
+	//option2["cookies"] = false
+	//c2.CloseCookies()
+	//resp = c2.Post("http://192.168.56.102/s2.php", option2)
+	//t.Log("Cookie colse\t", resp.Body)
 }

@@ -40,3 +40,29 @@ c3 := NewClient(v3)
 resp, err = c3.Post("http://192.168.56.102/upload.php", nil)
 fmt.Println(resp.Body)
 ```
+
+### login (代码见test)
+```cassandraql
+v2 := map[string]interface{}{
+    "json": map[string]interface{}{
+        "key": "ivideo_index",
+    },
+    "proxy": "http://127.0.0.1:8888",
+    "cookies": true,
+}
+option2 := map[string]interface{}{
+    "json": `{"key":"value"}`,
+}
+c2 := NewClient(v2)
+resp := c2.Post("http://192.168.56.102/s1.php", nil)
+
+option2["cookies"] = resp.Cookies()
+resp = c2.Post("http://192.168.56.102/s2.php", option2)
+t.Log("Cookie\t", resp.Body)
+
+// close cookie
+c2.CloseCookies()
+resp = c2.Post("http://192.168.56.102/s2.php", option2)
+t.Log("Cookie colse\t", resp.Body)
+
+```

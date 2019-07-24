@@ -29,6 +29,7 @@ var (
 
 type Client struct {
 	config map[string]interface{}
+	domain string
 	errs   []error
 }
 
@@ -112,18 +113,21 @@ func (c *Client) addError(e error) {
 	c.errs = append(c.errs, e)
 }
 
-func (c *Client) request(method string, uri string, option map[string]interface{}) *Response {
-	c.resetErrors(option)
-	request, err := http.NewRequest(method, c.rebuildURI(uri, option), c.requestBody(option))
+func (c *Client) request(method string, uri string, options map[string]interface{}) *Response {
+	c.resetErrors(options)
+	request, err := http.NewRequest(method, c.rebuildURI(uri, options), c.requestBody(options))
 	if nil != err {
 		c.addError(err)
 		return nil
 	}
-	c.setRequestHeader(request, option)
+
+	c.setRequestHeader(request, options)
 	if 0 < len(c.errs) {
 		return nil
 	}
-	response, err := c.getHttpClient(option).Do(request)
+	httpClient := c.getHttpClient(options)
+	c.setCookies(httpClient, request, options)
+	response, err := httpClient.Do(request)
 	if nil != err {
 		c.addError(err)
 		return nil
@@ -132,6 +136,39 @@ func (c *Client) request(method string, uri string, option map[string]interface{
 	resp.Response = response
 	resp.setBody()
 	return resp
+}
+
+func (c *Client) CloseCookies() {
+	header, ok := c.config["headers"].(http.Header)
+	if ok {
+		header.Del("Cookie")
+	}
+	c.config["cookies"] = false
+}
+
+func (c *Client) setCookies(client *http.Client, r *http.Request, options map[string]interface{}) {
+	setFunc := func(client *http.Client, r *http.Request, cookies interface{}) {
+		switch cookies.(type) {
+		case []*http.Cookie:
+			if 0 == len(cookies.([]*http.Cookie)) {
+				break
+			}
+			for _, cookie := range cookies.([]*http.Cookie) {
+				r.AddCookie(cookie)
+			}
+		}
+	}
+
+	if v, ok := options["cookies"]; ok {
+		if nil != v {
+			setFunc(client, r, v)
+		}
+
+	} else if v, ok := c.config["cookies"]; ok {
+		if nil != v {
+			setFunc(client, r, v)
+		}
+	}
 }
 
 func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
@@ -174,6 +211,12 @@ func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 		}
 	}
 	if 0 == strings.Index(uri, `http://`) || 0 == strings.Index(uri, `https://`) {
+		uriParse, err := url.Parse(uri)
+		if nil != err {
+			c.addError(err)
+			return ``
+		}
+		c.domain = uriParse.Host
 		if 0 == len(queryStr) {
 			return uri
 		}
@@ -204,6 +247,7 @@ func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 		c.addError(err)
 		return ``
 	}
+	c.domain = uriParse.Host
 	return uriParse.Scheme + `://` + uriParse.Host + `/` + strings.TrimLeft(uri, `/`)
 }
 
