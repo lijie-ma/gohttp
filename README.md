@@ -22,15 +22,15 @@ resp, err := c.Post("http://10.16.155.5:8090/cms/getone", nil)
 log.Println(resp, err)
 
 ```
-###文件上传
+### 文件上传
 ```cassandraql
 v3 := map[string]interface{}{
     "uploads": map[string]interface{}{
-        "files" : map[string]string {
+        "files" : map[string]string {         //注意类型map[string]string
             "f1": "D:/download/2.sql",
             "f2": "D:/download/1.sql",
         },
-        "form_params" : map[string]string {
+        "form_params" : map[string]string {  //注意类型map[string]string
             "key": "ivideo_index",
         },
     },
