@@ -165,6 +165,13 @@ func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 		default:
 			c.addError(errTypeQuery)
 		}
+	} else if v, ok := c.config["query"]; ok {
+		switch v.(type) {
+		case string:
+			queryStr = v.(string)
+		default:
+			c.addError(errTypeQuery)
+		}
 	}
 	if 0 == strings.Index(uri, `http://`) || 0 == strings.Index(uri, `https://`) {
 		if 0 < len(queryStr) {
@@ -210,7 +217,7 @@ func (c *Client) setRequestHeader(r *http.Request, option map[string]interface{}
 }
 
 func (c *Client) requestBody(option map[string]interface{}) io.Reader {
-	if v, ok := c.config["json"]; ok {
+	funcJson := func(v interface{}) io.Reader {
 		h := c.config["headers"].(http.Header)
 		h.Set("Content-Type", "application/json")
 		s := ""
@@ -226,26 +233,38 @@ func (c *Client) requestBody(option map[string]interface{}) io.Reader {
 		}
 		return strings.NewReader(s)
 	}
+	if v, ok := option["json"]; ok {
+		return funcJson(v)
+	}
+	if v, ok := option["form_params"]; ok {
+		h := c.config["headers"].(http.Header)
+		h.Set("Content-Type", "application/x-www-form-urlencoded")
+		return strings.NewReader(utility.HttpBuildQuery(v.(map[string]interface{})))
+	}
+	if v, ok := option["uploads"]; ok {
+		return c.setUploads(v.(map[string]interface{}))
+	}
+	if v, ok := c.config["json"]; ok {
+		return funcJson(v)
+	}
 	if v, ok := c.config["form_params"]; ok {
 		h := c.config["headers"].(http.Header)
 		h.Set("Content-Type", "application/x-www-form-urlencoded")
 		return strings.NewReader(utility.HttpBuildQuery(v.(map[string]interface{})))
 	}
-
-	return c.setUploads(option)
+	if v, ok := c.config["uploads"]; ok {
+		return c.setUploads(v.(map[string]interface{}))
+	}
+	return nil
 }
 
 // 设置上传信息
-func (c *Client) setUploads(option map[string]interface{}) io.Reader {
-	uploads, ok := c.config["uploads"]
-	if !ok {
-		return nil
-	}
+func (c *Client) setUploads(uploads map[string]interface{}) io.Reader {
 	h := c.config["headers"].(http.Header)
 	h.Set("Content-Type", "multipart/form-data")
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	files, ok := uploads.(map[string]interface{})["files"]
+	files, ok := uploads["files"]
 	if ok {
 		for field, file := range files.(map[string]string) {
 			fp, err := os.Open(file)
@@ -267,7 +286,7 @@ func (c *Client) setUploads(option map[string]interface{}) io.Reader {
 			h.Set("Content-Type", writer.FormDataContentType())
 		}
 	}
-	fileds, ok := uploads.(map[string]interface{})["form_params"]
+	fileds, ok := uploads["form_params"]
 	if ok {
 		for field, value := range fileds.(map[string]string) {
 			writer.WriteField(field, value)
@@ -288,6 +307,11 @@ func (c *Client) prepareDefaults(option map[string]interface{}) map[string]inter
 }
 
 // 发送post 请求，如果出错，则返回nil， 可以通过 GetErrors 拿到错误信息
+// options 可以设置 表单信息
+//  			form_params
+//				uploads
+//				json
+// 这些会覆盖全局的
 func (c *Client) Post(uri string, options map[string]interface{}) *Response {
 	return c.request("POST", uri, options)
 }
@@ -304,8 +328,9 @@ func (c *Client) Put() {
 func (c *Client) Delete() {
 
 }
-func (c *Client) Head() {
 
+func (c *Client) Head(uri string, options map[string]interface{}) *Response {
+	return c.request("HEAD", uri, options)
 }
 
 func defaultUserAgent() string {

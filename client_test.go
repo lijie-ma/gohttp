@@ -56,6 +56,60 @@ func TestBaseUri(t *testing.T) {
 	t.Log("base_uri\t", resp.Body)
 }
 
+func TestOption(t *testing.T) {
+	v := map[string]interface{}{
+		"proxy": "http://127.0.0.1:8888",
+	}
+	option := map[string]interface{}{
+		"form_params": map[string]interface{}{
+			"key": "ivideo_index",
+		},
+	}
+	c := NewClient(v)
+	resp := c.Post("http://10.16.155.5:8090/cms/getone", option)
+	t.Log("option\t", resp.Body)
+
+	v2 := map[string]interface{}{
+		"json": map[string]interface{}{
+			"key": "ivideo_index",
+		},
+		"proxy": "http://127.0.0.1:8888",
+	}
+	option2 := map[string]interface{}{
+		"json": `{"key":"value"}`,
+	}
+	c2 := NewClient(v2)
+	resp = c2.Post("http://192.168.56.102/test.php", option2)
+	t.Log("option\t", resp.Body)
+
+	v3 := map[string]interface{}{
+		"uploads": map[string]interface{}{
+			"files": map[string]string{
+				"f1": "D:/download/2.sql",
+				"f2": "D:/download/1.sql",
+			},
+			"form_params": map[string]string{
+				"key": "ivideo_index",
+			},
+		},
+		"proxy": "http://127.0.0.1:8888",
+	}
+	option3 := map[string]interface{}{
+		"uploads": map[string]interface{}{
+			"files": map[string]string{
+				"f1": "D:/download/2.sql",
+			},
+			"form_params": map[string]string{
+				"key": "ivideo_index",
+			},
+		},
+		"proxy": "http://127.0.0.1:8888",
+	}
+	c3 := NewClient(v3)
+	resp = c3.Post("http://192.168.56.102/upload.php", option3)
+	t.Log("option\t", resp.Body)
+}
+
 func TestGet(t *testing.T) {
 	config := map[string]interface{}{
 		"headers": map[string][]string{
