@@ -13,8 +13,7 @@ func TestClient_Post(t *testing.T) {
 		"proxy": "http://127.0.0.1:8888",
 	}
 	c := NewClient(v)
-	resp, err := c.Post("http://10.16.155.5:8090/cms/getone", nil)
-	t.Log(err)
+	resp := c.Post("http://10.16.155.5:8090/cms/getone", nil)
 	t.Log(resp.Body)
 
 	v2 := map[string]interface{}{
@@ -24,8 +23,7 @@ func TestClient_Post(t *testing.T) {
 		"proxy": "http://127.0.0.1:8888",
 	}
 	c2 := NewClient(v2)
-	resp, err = c2.Post("http://192.168.56.102/test.php", nil)
-	t.Log(err)
+	resp = c2.Post("http://192.168.56.102/test.php", nil)
 	t.Log(resp.Body)
 
 	v3 := map[string]interface{}{
@@ -41,8 +39,7 @@ func TestClient_Post(t *testing.T) {
 		"proxy": "http://127.0.0.1:8888",
 	}
 	c3 := NewClient(v3)
-	resp, err = c3.Post("http://192.168.56.102/upload.php", nil)
-	t.Log(err)
+	resp = c3.Post("http://192.168.56.102/upload.php", nil)
 	t.Log(resp.Body)
 }
 
