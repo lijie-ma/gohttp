@@ -21,10 +21,11 @@ const (
 
 type Client struct {
 	config map[string]interface{}
+	errs   []error
 }
 
 func NewClient(config map[string]interface{}) *Client {
-	c := &Client{}
+	c := &Client{errs: make([]error, 0, 2)}
 	c.configDefault(config)
 	return c
 }
@@ -66,20 +67,63 @@ func (c *Client) defaultHeaders(config map[string]interface{}) {
 	}
 }
 
-func (c *Client) request(method string, uri string, option map[string]interface{}) (*Response, error) {
+// ResetErrors每次请求前重置 可以通过配置 reset_error 的值为 false 来禁止
+func (c *Client) ResetErrors() {
+	c.resetErrors(nil)
+}
+
+func (c *Client) resetErrors(option map[string]interface{}) {
+	tempFunc := func(v interface{}) bool {
+		switch v.(type) {
+		case bool:
+			return v.(bool)
+		}
+		return false
+	}
+	tmpkey := "reset_error"
+	if v, ok := option[tmpkey]; ok {
+		if tempFunc(v) {
+			c.errs = c.errs[:0]
+		}
+		return
+	}
+	if v, ok := c.config[tmpkey]; ok {
+		if tempFunc(v) {
+			c.errs = c.errs[:0]
+		}
+		return
+	}
+	c.errs = c.errs[:0]
+}
+
+func (c *Client) GetErrors() []error {
+	return c.errs
+}
+
+func (c *Client) addError(e error) {
+	c.errs = append(c.errs, e)
+}
+
+func (c *Client) request(method string, uri string, option map[string]interface{}) *Response {
+	c.resetErrors(option)
 	request, err := http.NewRequest(method, uri, c.requestBody(option))
 	if nil != err {
-		return nil, err
+		c.addError(err)
+		return nil
 	}
 	c.setRequestHeader(request, option)
+	if 0 < len(c.errs) {
+		return nil
+	}
 	response, err := c.getHttpClient(option).Do(request)
 	if nil != err {
-		return nil, err
+		c.addError(err)
+		return nil
 	}
 	resp := &Response{}
 	resp.Response = response
 	resp.setBody()
-	return resp, err
+	return resp
 }
 
 func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
@@ -126,7 +170,7 @@ func (c *Client) requestBody(option map[string]interface{}) io.Reader {
 		default:
 			b, e := json.Marshal(v)
 			if nil != e {
-				panic(e)
+				c.addError(e)
 			}
 			s = string(b)
 		}
@@ -156,16 +200,19 @@ func (c *Client) setUploads(option map[string]interface{}) io.Reader {
 		for field, file := range files.(map[string]string) {
 			fp, err := os.Open(file)
 			if err != nil {
-				panic(err)
+				c.addError(err)
+				continue
 			}
 			defer fp.Close()
 			part, err := writer.CreateFormFile(field, filepath.Base(file))
 			if nil != err {
-				panic(err)
+				c.addError(err)
+				continue
 			}
 			_, err = io.Copy(part, fp)
 			if nil != err {
-				panic(err)
+				c.addError(err)
+				continue
 			}
 			h.Set("Content-Type", writer.FormDataContentType())
 		}
@@ -179,6 +226,7 @@ func (c *Client) setUploads(option map[string]interface{}) io.Reader {
 
 	err := writer.Close()
 	if nil != err {
+		c.addError(err)
 		return nil
 	}
 
@@ -189,11 +237,12 @@ func (c *Client) prepareDefaults(option map[string]interface{}) map[string]inter
 	return option
 }
 
-func (c *Client) Post(uri string, options map[string]interface{}) (*Response, error) {
+// 发送post 请求，如果出错，则返回nil， 可以通过 GetErrors 拿到错误信息
+func (c *Client) Post(uri string, options map[string]interface{}) *Response {
 	return c.request("POST", uri, options)
 }
-
-func (c *Client) Get(uri string, options map[string]interface{}) (*Response, error) {
+//Get 如果出错，则返回nil， 可以通过 GetErrors 拿到错误信息
+func (c *Client) Get(uri string, options map[string]interface{}) *Response {
 	return c.request("GET", uri, options)
 }
 
