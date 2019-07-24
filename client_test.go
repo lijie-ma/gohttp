@@ -27,6 +27,23 @@ func TestClient_Post(t *testing.T) {
 	resp, err = c2.Post("http://192.168.56.102/test.php", nil)
 	t.Log(err)
 	t.Log(resp.Body)
+
+	v3 := map[string]interface{}{
+		"uploads": map[string]interface{}{
+			"files" : map[string]string {
+				"f1": "D:/download/2.sql",
+				"f2": "D:/download/1.sql",
+			},
+			"form_params" : map[string]string {
+				"key": "ivideo_index",
+			},
+		},
+		"proxy": "http://127.0.0.1:8888",
+	}
+	c3 := NewClient(v3)
+	resp, err = c3.Post("http://192.168.56.102/upload.php", nil)
+	t.Log(err)
+	t.Log(resp.Body)
 }
 
 func TestGet(t *testing.T) {
