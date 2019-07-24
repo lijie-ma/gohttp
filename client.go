@@ -3,6 +3,7 @@ package gohttp
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"github.com/lijie-ma/utility"
 	"io"
 	"mime/multipart"
@@ -17,6 +18,13 @@ import (
 
 const (
 	client_version = "0.0.1"
+)
+
+var (
+	errTypetimeout = errors.New("invalid timeout type, require int or time.Duration")
+	errTypeQuery   = errors.New("invalid query type, require string")
+	errEmptyURI    = errors.New("empty base_uri set")
+	errTypeURI     = errors.New("invalid base_uri type, require string")
 )
 
 type Client struct {
@@ -106,7 +114,7 @@ func (c *Client) addError(e error) {
 
 func (c *Client) request(method string, uri string, option map[string]interface{}) *Response {
 	c.resetErrors(option)
-	request, err := http.NewRequest(method, uri, c.requestBody(option))
+	request, err := http.NewRequest(method, c.rebuildURI(uri, option), c.requestBody(option))
 	if nil != err {
 		c.addError(err)
 		return nil
@@ -134,10 +142,8 @@ func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
 			clientHttp.Timeout = time.Duration(v.(int)) * time.Second
 		case time.Duration:
 			clientHttp.Timeout = v.(time.Duration)
-		case float32:
-			clientHttp.Timeout = time.Duration(v.(float32)) * time.Second
-		case float64:
-			clientHttp.Timeout = time.Duration(v.(float64)) * time.Second
+		default:
+			c.addError(errTypetimeout)
 		}
 	}
 	if rawurl, ok := c.config["proxy"]; ok {
@@ -148,6 +154,50 @@ func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
 	}
 
 	return clientHttp
+}
+
+func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
+	queryStr := ``
+	if v, ok := option["query"]; ok {
+		switch v.(type) {
+		case string:
+			queryStr = v.(string)
+		default:
+			c.addError(errTypeQuery)
+		}
+	}
+	if 0 == strings.Index(uri, `http://`) || 0 == strings.Index(uri, `https://`) {
+		if 0 < len(queryStr) {
+			return uri
+		}
+		if -1 == strings.Index(uri, `?`) {
+			uri += `?`
+		}
+		return uri + queryStr
+	} else if 0 < len(queryStr) {
+		if -1 == strings.Index(uri, `?`) {
+			uri += `?`
+		}
+		uri += queryStr
+	}
+	baseUri, ok := c.config["base_uri"]
+	if !ok {
+		c.addError(errEmptyURI)
+		return ``
+	}
+
+	switch baseUri.(type) {
+	case string:
+	default:
+		c.addError(errTypeURI)
+		return ``
+	}
+	uriParse, err := url.Parse(baseUri.(string))
+	if nil != err {
+		c.addError(err)
+		return ``
+	}
+	return uriParse.Scheme + `://` + uriParse.Host + `/` + strings.TrimLeft(uri, `/`)
 }
 
 func (c *Client) setRequestHeader(r *http.Request, option map[string]interface{}) {
@@ -241,6 +291,7 @@ func (c *Client) prepareDefaults(option map[string]interface{}) map[string]inter
 func (c *Client) Post(uri string, options map[string]interface{}) *Response {
 	return c.request("POST", uri, options)
 }
+
 //Get 如果出错，则返回nil， 可以通过 GetErrors 拿到错误信息
 func (c *Client) Get(uri string, options map[string]interface{}) *Response {
 	return c.request("GET", uri, options)
