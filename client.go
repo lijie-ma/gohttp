@@ -1,11 +1,15 @@
 package gohttp
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/lijie-ma/utility"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -58,7 +62,6 @@ func (c *Client) defaultHeaders(config map[string]interface{}) {
 		if 0 == len(headers.Get("User-Agent")) && 0 == len(headers.Get("user-agent")) {
 			headers.Add("User-Agent", defaultUserAgent())
 		}
-		delete(config, "headers")
 		config["headers"] = headers
 	}
 }
@@ -82,7 +85,16 @@ func (c *Client) request(method string, uri string, option map[string]interface{
 func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
 	clientHttp := &http.Client{Timeout: 0 * time.Second}
 	if v, ok := c.config["timeout"]; ok {
-		clientHttp.Timeout = time.Duration(v.(int)) * time.Second
+		switch v.(type) {
+		case int:
+			clientHttp.Timeout = time.Duration(v.(int)) * time.Second
+		case time.Duration:
+			clientHttp.Timeout = v.(time.Duration)
+		case float32:
+			clientHttp.Timeout = time.Duration(v.(float32)) * time.Second
+		case float64:
+			clientHttp.Timeout = time.Duration(v.(float64)) * time.Second
+		}
 	}
 	if rawurl, ok := c.config["proxy"]; ok {
 		proxy := func(_ *http.Request) (*url.URL, error) {
@@ -125,7 +137,52 @@ func (c *Client) requestBody(option map[string]interface{}) io.Reader {
 		h.Set("Content-Type", "application/x-www-form-urlencoded")
 		return strings.NewReader(utility.HttpBuildQuery(v.(map[string]interface{})))
 	}
-	return nil
+
+	return c.setUploads(option)
+}
+
+// 设置上传信息
+func (c *Client) setUploads(option map[string]interface{}) io.Reader {
+	uploads, ok := c.config["uploads"]
+	if !ok {
+		return nil
+	}
+	h := c.config["headers"].(http.Header)
+	h.Set("Content-Type", "multipart/form-data")
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	files, ok := uploads.(map[string]interface{})["files"]
+	if ok {
+		for field, file := range files.(map[string]string) {
+			fp, err := os.Open(file)
+			if err != nil {
+				panic(err)
+			}
+			defer fp.Close()
+			part, err := writer.CreateFormFile(field, filepath.Base(file))
+			if nil != err {
+				panic(err)
+			}
+			_, err = io.Copy(part, fp)
+			if nil != err {
+				panic(err)
+			}
+			h.Set("Content-Type", writer.FormDataContentType())
+		}
+	}
+	fileds, ok := uploads.(map[string]interface{})["form_params"]
+	if ok {
+		for field, value := range fileds.(map[string]string) {
+			writer.WriteField(field, value)
+		}
+	}
+
+	err := writer.Close()
+	if nil != err {
+		return nil
+	}
+
+	return body
 }
 
 func (c *Client) prepareDefaults(option map[string]interface{}) map[string]interface{} {
