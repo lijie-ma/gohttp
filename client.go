@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	errTypetimeout = errors.New("invalid timeout type, require int or time.Duration")
+	errTypetimeout = errors.New("invalid connect_timeout type, require int or time.Duration")
 	errTypeQuery   = errors.New("invalid query type, require string")
 	errEmptyURI    = errors.New("empty base_uri set")
 	errTypeURI     = errors.New("invalid base_uri type, require string")
@@ -189,7 +189,7 @@ func (c *Client) setCookies(client *http.Client, options map[string]interface{})
 
 func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
 	clientHttp := &http.Client{Timeout: 0 * time.Second}
-	if v, ok := c.config["timeout"]; ok {
+	if v, ok := c.config["connect_timeout"]; ok {
 		switch v.(type) {
 		case int:
 			clientHttp.Timeout = time.Duration(v.(int)) * time.Second
@@ -238,11 +238,15 @@ func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 		}
 		if -1 == strings.Index(uri, `?`) {
 			uri += `?`
+		} else {
+			uri += `&`
 		}
 		return uri + queryStr
 	} else if 0 < len(queryStr) {
 		if -1 == strings.Index(uri, `?`) {
 			uri += `?`
+		} else {
+			uri += `&`
 		}
 		uri += queryStr
 	}
