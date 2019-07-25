@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	errTypetimeout = errors.New("invalid connect_timeout type, require int or time.Duration")
+	errTypetimeout = errors.New("invalid timeout type, require int or time.Duration")
 	errTypeQuery   = errors.New("invalid query type, require string")
 	errEmptyURI    = errors.New("empty base_uri set")
 	errTypeURI     = errors.New("invalid base_uri type, require string")
@@ -47,9 +47,6 @@ func (c *Client) configDefault(config map[string]interface{}) {
 	if _, ok := config["cookies"]; !ok {
 		config["cookies"] = false
 	}
-	if _, ok := config["http_errors"]; !ok {
-		config["http_errors"] = true
-	}
 	c.config = config
 }
 
@@ -57,7 +54,6 @@ func (c *Client) defaultHeaders(config map[string]interface{}) {
 	headers := http.Header{}
 	if _, ok := config["headers"]; !ok {
 		headers.Add("User-Agent", defaultUserAgent())
-		config["headers"] = headers
 	} else {
 		tmp := config["headers"]
 		switch tmp.(type) {
@@ -75,8 +71,8 @@ func (c *Client) defaultHeaders(config map[string]interface{}) {
 		if 0 == len(headers.Get("User-Agent")) && 0 == len(headers.Get("user-agent")) {
 			headers.Add("User-Agent", defaultUserAgent())
 		}
-		config["headers"] = headers
 	}
+	config["headers"] = headers
 }
 
 // ResetErrors每次请求前重置 可以通过配置 reset_error 的值为 false 来禁止
@@ -144,7 +140,6 @@ func (c *Client) request(method string, uri string, options map[string]interface
 func (c *Client) GetCookies() []*http.Cookie {
 	if nil != c.httpClient.Jar {
 		return c.httpClient.Jar.Cookies(c.uri)
-
 	}
 	return nil
 }
@@ -189,7 +184,7 @@ func (c *Client) setCookies(client *http.Client, options map[string]interface{})
 
 func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
 	clientHttp := &http.Client{Timeout: 0 * time.Second}
-	if v, ok := c.config["connect_timeout"]; ok {
+	if v, ok := c.config["timeout"]; ok {
 		switch v.(type) {
 		case int:
 			clientHttp.Timeout = time.Duration(v.(int)) * time.Second
