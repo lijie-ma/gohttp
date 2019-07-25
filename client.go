@@ -39,6 +39,8 @@ var (
 	errTypeQuery   = errors.New("invalid query type, require string")
 	errEmptyURI    = errors.New("empty base_uri set")
 	errTypeURI     = errors.New("invalid base_uri type, require string")
+
+	defaultClient = NewClient(map[string]interface{}{})
 )
 
 type Client struct {
@@ -422,15 +424,15 @@ func (c *Client) Head(uri string, options map[string]interface{}) *Response {
 }
 
 func Post(uri string, options map[string]interface{}) *Response {
-	return NewClient(map[string]interface{}{}).Post(uri, options)
+	return defaultClient.Post(uri, options)
 }
 
 func Get(uri string, options map[string]interface{}) *Response {
-	return NewClient(map[string]interface{}{}).Get(uri, options)
+	return defaultClient.Get(uri, options)
 }
 
 func Head(uri string, options map[string]interface{}) *Response {
-	return NewClient(map[string]interface{}{}).Head(uri, options)
+	return defaultClient.Head(uri, options)
 }
 
 func defaultUserAgent() string {
