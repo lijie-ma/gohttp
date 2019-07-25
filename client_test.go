@@ -1,6 +1,7 @@
 package gohttp
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -114,7 +115,7 @@ func TestCookie(t *testing.T) {
 		"json": map[string]interface{}{
 			"key": "ivideo_index",
 		},
-		"proxy": "http://127.0.0.1:8888",
+		"proxy":   "http://127.0.0.1:8888",
 		"cookies": true,
 	}
 	option2 := map[string]interface{}{
@@ -124,6 +125,29 @@ func TestCookie(t *testing.T) {
 	resp := c2.Post("http://192.168.56.102/s1.php", nil)
 
 	option2["cookies"] = resp.Cookies()
+	resp = c2.Post("http://192.168.56.102/s2.php", option2)
+	t.Log("Cookie\t", resp.Body)
+	//close cookies
+	option2["cookies"] = false
+	c2.CloseCookies()
+	resp = c2.Post("http://192.168.56.102/s2.php", option2)
+	t.Log("Cookie colse\t", resp.Body)
+}
+
+func TestRedirect(t *testing.T) {
+	v := map[string]interface{}{
+		"form_params": map[string]interface{}{
+			"name": "aa",
+		},
+		"proxy":   "http://127.0.0.1:8888",
+		"cookies": true,
+	}
+	option2 := map[string]interface{}{
+		"json": `{"key":"value"}`,
+	}
+	c2 := NewClient(v)
+	resp := c2.Post("http://192.168.56.102/login.php", nil)
+	fmt.Println(resp.Body, resp.Cookies())
 	resp = c2.Post("http://192.168.56.102/s2.php", option2)
 	t.Log("Cookie\t", resp.Body)
 	////close cookies

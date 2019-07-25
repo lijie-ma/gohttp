@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/lijie-ma/utility"
+	"golang.org/x/net/publicsuffix"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -28,9 +30,10 @@ var (
 )
 
 type Client struct {
-	config map[string]interface{}
-	domain string
-	errs   []error
+	config     map[string]interface{}
+	uri        *url.URL
+	httpClient *http.Client
+	errs       []error
 }
 
 func NewClient(config map[string]interface{}) *Client {
@@ -125,9 +128,9 @@ func (c *Client) request(method string, uri string, options map[string]interface
 	if 0 < len(c.errs) {
 		return nil
 	}
-	httpClient := c.getHttpClient(options)
-	c.setCookies(httpClient, request, options)
-	response, err := httpClient.Do(request)
+	c.httpClient = c.getHttpClient(options)
+	c.setCookies(c.httpClient, options)
+	response, err := c.httpClient.Do(request)
 	if nil != err {
 		c.addError(err)
 		return nil
@@ -138,6 +141,14 @@ func (c *Client) request(method string, uri string, options map[string]interface
 	return resp
 }
 
+func (c *Client) GetCookies() []*http.Cookie {
+	if nil != c.httpClient.Jar {
+		return c.httpClient.Jar.Cookies(c.uri)
+
+	}
+	return nil
+}
+
 func (c *Client) CloseCookies() {
 	header, ok := c.config["headers"].(http.Header)
 	if ok {
@@ -146,27 +157,32 @@ func (c *Client) CloseCookies() {
 	c.config["cookies"] = false
 }
 
-func (c *Client) setCookies(client *http.Client, r *http.Request, options map[string]interface{}) {
-	setFunc := func(client *http.Client, r *http.Request, cookies interface{}) {
+func (c *Client) setCookies(client *http.Client, options map[string]interface{}) {
+	setFunc := func(client *http.Client, cookies interface{}) {
 		switch cookies.(type) {
+		case bool:
+			if cookies.(bool) {
+				client.Jar = DefaultCookieJar(c.uri.Host)
+			} else if nil != client.Jar {
+				client.Jar = nil
+			}
 		case []*http.Cookie:
 			if 0 == len(cookies.([]*http.Cookie)) {
 				break
 			}
-			for _, cookie := range cookies.([]*http.Cookie) {
-				r.AddCookie(cookie)
-			}
+			client.Jar = DefaultCookieJar(c.uri.Host)
+			client.Jar.SetCookies(c.uri, cookies.([]*http.Cookie))
 		}
 	}
 
 	if v, ok := options["cookies"]; ok {
 		if nil != v {
-			setFunc(client, r, v)
+			setFunc(client, v)
 		}
 
 	} else if v, ok := c.config["cookies"]; ok {
 		if nil != v {
-			setFunc(client, r, v)
+			setFunc(client, v)
 		}
 	}
 }
@@ -216,7 +232,7 @@ func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 			c.addError(err)
 			return ``
 		}
-		c.domain = uriParse.Host
+		c.uri = uriParse
 		if 0 == len(queryStr) {
 			return uri
 		}
@@ -247,8 +263,8 @@ func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 		c.addError(err)
 		return ``
 	}
-	c.domain = uriParse.Host
-	return uriParse.Scheme + `://` + uriParse.Host + `/` + strings.TrimLeft(uri, `/`)
+	c.uri = uriParse
+	return c.uri.Scheme + `://` + c.uri.Host + `/` + strings.TrimLeft(uri, `/`)
 }
 
 func (c *Client) setRequestHeader(r *http.Request, option map[string]interface{}) {
@@ -346,8 +362,11 @@ func (c *Client) setUploads(uploads map[string]interface{}) io.Reader {
 	return body
 }
 
-func (c *Client) prepareDefaults(option map[string]interface{}) map[string]interface{} {
-	return option
+func (c *Client) defaultRedirect() func(req *http.Request, via []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+
+		return nil
+	}
 }
 
 // 发送post 请求，如果出错，则返回nil， 可以通过 GetErrors 拿到错误信息
@@ -379,4 +398,13 @@ func (c *Client) Head(uri string, options map[string]interface{}) *Response {
 
 func defaultUserAgent() string {
 	return "gohttp/" + client_version + "  golang " + runtime.Version()
+}
+
+func DefaultCookieJar(domain ...string) *cookiejar.Jar {
+	list := publicsuffix.List
+	if 0 < len(domain) {
+		list.PublicSuffix(domain[0])
+	}
+	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: list})
+	return jar
 }
