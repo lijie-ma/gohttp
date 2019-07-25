@@ -74,4 +74,4 @@ t.Log("Cookie\t", resp.Body)
 | proxy | string |  | reqeust时 使用的代理 |
 | query | string |  | 会被拼接到url后，目前仅支持string类型 |
 | json | string &vert; interface{} |  | interface{}类型会调用json.Marshal， content-type 会设置为application/json |
-| uploads | map[string]interface{} |  | 参考类domo 中的uploads[###文件上传](文件上传)  |
+| uploads | map[string]interface{} |  | 参考类domo 中的uploads[文件上传](###文件上传)  |
