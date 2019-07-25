@@ -23,7 +23,7 @@ log.Println(resp, err)
 
 ```
 ### 文件上传
-```cassandraql
+```golang
 v3 := map[string]interface{}{
     "uploads": map[string]interface{}{
         "files" : map[string]string {         //注意类型map[string]string
@@ -42,7 +42,7 @@ fmt.Println(resp.Body)
 ```
 
 ### login (代码见test)
-```cassandraql
+```golang
 v := map[string]interface{}{
     "form_params": map[string]interface{}{
         "name": "aa",
