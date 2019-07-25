@@ -7,7 +7,7 @@ import (
 var (
 	proxy       = "http://127.0.0.1:8888"
 	loginUri    = "http://192.168.56.102/login.php"
-	jsonUri     = "http://192.168.56.102/test.php"
+	jsonUri     = "http://192.168.56.102/json.php"
 	uploadUri   = "http://192.168.56.102/upload.php"
 	session1    = "http://192.168.56.102/s1.php"
 	session2Uri = "http://192.168.56.102/s2.php"
@@ -35,7 +35,7 @@ func TestClient_Post(t *testing.T) {
 	t.Log(resp.Body)
 
 	v3 := map[string]interface{}{
-		"uploads": map[string]interface{}{
+		"multipart": map[string]interface{}{
 			"files": map[string]string{
 				"f1": "D:/download/2.sql",
 				"f2": "D:/download/1.sql",
@@ -91,7 +91,7 @@ func TestOption(t *testing.T) {
 	t.Log("option\t", resp.Body)
 
 	v3 := map[string]interface{}{
-		"uploads": map[string]interface{}{
+		"multipart": map[string]interface{}{
 			"files": map[string]string{
 				"f1": "D:/download/2.sql",
 				"f2": "D:/download/1.sql",

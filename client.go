@@ -19,7 +19,18 @@ import (
 )
 
 const (
-	client_version = "0.0.1"
+	client_version  = "0.0.1"
+	COOKIES         = `cookies`
+	HEADERS         = `headers`
+	AUTH            = `auth`
+	JSON            = `json`
+	FORM_PARAMS     = `form_params`
+	MULTIPART       = `multipart`
+	MULTIPART_FILES = `files`
+	BASE_URI        = `base_uri`
+	PROXY           = `proxy`
+	TIMEOUT         = `timeout`
+	QUERY           = `query`
 )
 
 var (
@@ -44,18 +55,18 @@ func NewClient(config map[string]interface{}) *Client {
 
 func (c *Client) configDefault(config map[string]interface{}) {
 	c.defaultHeaders(config)
-	if _, ok := config["cookies"]; !ok {
-		config["cookies"] = false
+	if _, ok := config[COOKIES]; !ok {
+		config[COOKIES] = false
 	}
 	c.config = config
 }
 
 func (c *Client) defaultHeaders(config map[string]interface{}) {
 	headers := http.Header{}
-	if _, ok := config["headers"]; !ok {
+	if _, ok := config[HEADERS]; !ok {
 		headers.Add("User-Agent", defaultUserAgent())
 	} else {
-		tmp := config["headers"]
+		tmp := config[HEADERS]
 		switch tmp.(type) {
 		case []map[string]string:
 			for _, hh := range tmp.([]map[string]string) {
@@ -72,7 +83,7 @@ func (c *Client) defaultHeaders(config map[string]interface{}) {
 			headers.Add("User-Agent", defaultUserAgent())
 		}
 	}
-	config["headers"] = headers
+	config[HEADERS] = headers
 }
 
 // ResetErrors每次请求前重置 可以通过配置 reset_error 的值为 false 来禁止
@@ -145,11 +156,11 @@ func (c *Client) GetCookies() []*http.Cookie {
 }
 
 func (c *Client) CloseCookies() {
-	header, ok := c.config["headers"].(http.Header)
+	header, ok := c.config[HEADERS].(http.Header)
 	if ok {
 		header.Del("Cookie")
 	}
-	c.config["cookies"] = false
+	c.config[COOKIES] = false
 }
 
 func (c *Client) setCookies(client *http.Client, options map[string]interface{}) {
@@ -170,12 +181,12 @@ func (c *Client) setCookies(client *http.Client, options map[string]interface{})
 		}
 	}
 
-	if v, ok := options["cookies"]; ok {
+	if v, ok := options[COOKIES]; ok {
 		if nil != v {
 			setFunc(client, v)
 		}
 
-	} else if v, ok := c.config["cookies"]; ok {
+	} else if v, ok := c.config[COOKIES]; ok {
 		if nil != v {
 			setFunc(client, v)
 		}
@@ -184,7 +195,7 @@ func (c *Client) setCookies(client *http.Client, options map[string]interface{})
 
 func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
 	clientHttp := &http.Client{Timeout: 0 * time.Second}
-	if v, ok := c.config["timeout"]; ok {
+	if v, ok := c.config[TIMEOUT]; ok {
 		switch v.(type) {
 		case int:
 			clientHttp.Timeout = time.Duration(v.(int)) * time.Second
@@ -194,7 +205,7 @@ func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
 			c.addError(errTypetimeout)
 		}
 	}
-	if rawurl, ok := c.config["proxy"]; ok {
+	if rawurl, ok := c.config[PROXY]; ok {
 		proxy := func(_ *http.Request) (*url.URL, error) {
 			return url.Parse(rawurl.(string))
 		}
@@ -206,14 +217,14 @@ func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
 
 func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 	queryStr := ``
-	if v, ok := option["query"]; ok {
+	if v, ok := option[QUERY]; ok {
 		switch v.(type) {
 		case string:
 			queryStr = v.(string)
 		default:
 			c.addError(errTypeQuery)
 		}
-	} else if v, ok := c.config["query"]; ok {
+	} else if v, ok := c.config[QUERY]; ok {
 		switch v.(type) {
 		case string:
 			queryStr = v.(string)
@@ -245,7 +256,7 @@ func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 		}
 		uri += queryStr
 	}
-	baseUri, ok := c.config["base_uri"]
+	baseUri, ok := c.config[BASE_URI]
 	if !ok {
 		c.addError(errEmptyURI)
 		return ``
@@ -267,10 +278,10 @@ func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 }
 
 func (c *Client) setRequestHeader(r *http.Request, option map[string]interface{}) {
-	if v, ok := c.config["auth"]; ok {
+	if v, ok := c.config[AUTH]; ok {
 		r.SetBasicAuth(v.([]string)[0], v.([]string)[1])
 	}
-	if h, ok := c.config["headers"]; ok {
+	if h, ok := c.config[HEADERS]; ok {
 		r.Header = h.(http.Header)
 	}
 }
@@ -300,7 +311,7 @@ func (c *Client) requestBody(option map[string]interface{}) io.Reader {
 		h.Set("Content-Type", "application/x-www-form-urlencoded")
 		return strings.NewReader(utility.HttpBuildQuery(v.(map[string]interface{})))
 	}
-	if v, ok := option["uploads"]; ok {
+	if v, ok := option[MULTIPART]; ok {
 		return c.setUploads(v.(map[string]interface{}))
 	}
 	if v, ok := c.config["json"]; ok {
@@ -311,7 +322,7 @@ func (c *Client) requestBody(option map[string]interface{}) io.Reader {
 		h.Set("Content-Type", "application/x-www-form-urlencoded")
 		return strings.NewReader(utility.HttpBuildQuery(v.(map[string]interface{})))
 	}
-	if v, ok := c.config["uploads"]; ok {
+	if v, ok := c.config[MULTIPART]; ok {
 		return c.setUploads(v.(map[string]interface{}))
 	}
 	return nil
@@ -319,11 +330,11 @@ func (c *Client) requestBody(option map[string]interface{}) io.Reader {
 
 // 设置上传信息
 func (c *Client) setUploads(uploads map[string]interface{}) io.Reader {
-	h := c.config["headers"].(http.Header)
+	h := c.config[HEADERS].(http.Header)
 	h.Set("Content-Type", "multipart/form-data")
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	files, ok := uploads["files"]
+	files, ok := uploads[MULTIPART_FILES]
 	if ok {
 		for field, file := range files.(map[string]string) {
 			fp, err := os.Open(file)
@@ -345,7 +356,7 @@ func (c *Client) setUploads(uploads map[string]interface{}) io.Reader {
 			h.Set("Content-Type", writer.FormDataContentType())
 		}
 	}
-	fileds, ok := uploads["form_params"]
+	fileds, ok := uploads[FORM_PARAMS]
 	if ok {
 		for field, value := range fileds.(map[string]string) {
 			writer.WriteField(field, value)
