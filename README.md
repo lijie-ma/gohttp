@@ -89,3 +89,4 @@ QUERY           = `query`
 | query | string |  | 会被拼接到url后，目前仅支持string类型 |
 | json | string &vert; interface{} |  | interface{}类型会调用json.Marshal， content-type 会设置为application/json |
 | multipart | map[string]interface{} |  | 参考类domo 中的multipart[文件上传](#file-upload)  |
+| base_uri | string |  | |

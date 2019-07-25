@@ -293,14 +293,12 @@ func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 		c.addError(errEmptyURI)
 		return ``
 	}
-
-	switch baseUri.(type) {
-	case string:
-	default:
+	tmpUri, ok := baseUri.(string)
+	if !ok {
 		c.addError(errTypeURI)
 		return ``
 	}
-	uriParse, err := url.Parse(baseUri.(string))
+	uriParse, err := url.Parse(tmpUri)
 	if nil != err {
 		c.addError(err)
 		return ``
