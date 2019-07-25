@@ -362,13 +362,6 @@ func (c *Client) setUploads(uploads map[string]interface{}) io.Reader {
 	return body
 }
 
-func (c *Client) defaultRedirect() func(req *http.Request, via []*http.Request) error {
-	return func(req *http.Request, via []*http.Request) error {
-
-		return nil
-	}
-}
-
 // 发送post 请求，如果出错，则返回nil， 可以通过 GetErrors 拿到错误信息
 // options 可以设置 表单信息
 //  			form_params

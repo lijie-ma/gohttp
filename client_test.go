@@ -1,8 +1,16 @@
 package gohttp
 
 import (
-	"fmt"
 	"testing"
+)
+
+var (
+	proxy       = "http://127.0.0.1:8888"
+	loginUri    = "http://192.168.56.102/login.php"
+	jsonUri     = "http://192.168.56.102/test.php"
+	uploadUri   = "http://192.168.56.102/upload.php"
+	session1    = "http://192.168.56.102/s1.php"
+	session2Uri = "http://192.168.56.102/s2.php"
 )
 
 func TestClient_Post(t *testing.T) {
@@ -10,7 +18,7 @@ func TestClient_Post(t *testing.T) {
 		"form_params": map[string]interface{}{
 			"key": "ivideo_index",
 		},
-		"proxy": "http://127.0.0.1:8888",
+		"proxy": proxy,
 	}
 	c := NewClient(v)
 	resp := c.Post("http://10.16.155.5:8090/cms/getone", nil)
@@ -20,10 +28,10 @@ func TestClient_Post(t *testing.T) {
 		"json": map[string]interface{}{
 			"key": "ivideo_index",
 		},
-		"proxy": "http://127.0.0.1:8888",
+		"proxy": proxy,
 	}
 	c2 := NewClient(v2)
-	resp = c2.Post("http://192.168.56.102/test.php", nil)
+	resp = c2.Post(jsonUri, nil)
 	t.Log(resp.Body)
 
 	v3 := map[string]interface{}{
@@ -36,10 +44,10 @@ func TestClient_Post(t *testing.T) {
 				"key": "ivideo_index",
 			},
 		},
-		"proxy": "http://127.0.0.1:8888",
+		"proxy": proxy,
 	}
 	c3 := NewClient(v3)
-	resp = c3.Post("http://192.168.56.102/upload.php", nil)
+	resp = c3.Post(uploadUri, nil)
 	t.Log(resp.Body)
 }
 
@@ -48,7 +56,7 @@ func TestBaseUri(t *testing.T) {
 		"json": map[string]interface{}{
 			"key": "ivideo_index",
 		},
-		"proxy":    "http://127.0.0.1:8888",
+		"proxy":    proxy,
 		"base_uri": "http://192.168.56.102/",
 	}
 	c2 := NewClient(v2)
@@ -58,7 +66,7 @@ func TestBaseUri(t *testing.T) {
 
 func TestOption(t *testing.T) {
 	v := map[string]interface{}{
-		"proxy": "http://127.0.0.1:8888",
+		"proxy": proxy,
 	}
 	option := map[string]interface{}{
 		"form_params": map[string]interface{}{
@@ -73,13 +81,13 @@ func TestOption(t *testing.T) {
 		"json": map[string]interface{}{
 			"key": "ivideo_index",
 		},
-		"proxy": "http://127.0.0.1:8888",
+		"proxy": proxy,
 	}
 	option2 := map[string]interface{}{
 		"json": `{"key":"value"}`,
 	}
 	c2 := NewClient(v2)
-	resp = c2.Post("http://192.168.56.102/test.php", option2)
+	resp = c2.Post(jsonUri, option2)
 	t.Log("option\t", resp.Body)
 
 	v3 := map[string]interface{}{
@@ -92,7 +100,7 @@ func TestOption(t *testing.T) {
 				"key": "ivideo_index",
 			},
 		},
-		"proxy": "http://127.0.0.1:8888",
+		"proxy": proxy,
 	}
 	option3 := map[string]interface{}{
 		"uploads": map[string]interface{}{
@@ -103,10 +111,10 @@ func TestOption(t *testing.T) {
 				"key": "ivideo_index",
 			},
 		},
-		"proxy": "127.0.0.1:8888",
+		"proxy": proxy,
 	}
 	c3 := NewClient(v3)
-	resp = c3.Post("http://192.168.56.102/upload.php", option3)
+	resp = c3.Post(uploadUri, option3)
 	t.Log("option\t", resp.Body)
 }
 
@@ -115,22 +123,22 @@ func TestCookie(t *testing.T) {
 		"json": map[string]interface{}{
 			"key": "ivideo_index",
 		},
-		"proxy":   "http://127.0.0.1:8888",
+		"proxy":   proxy,
 		"cookies": true,
 	}
 	option2 := map[string]interface{}{
 		"json": `{"key":"value"}`,
 	}
 	c2 := NewClient(v2)
-	resp := c2.Post("http://192.168.56.102/s1.php", nil)
+	resp := c2.Post(session1, nil)
 
 	option2["cookies"] = resp.Cookies()
-	resp = c2.Post("http://192.168.56.102/s2.php", option2)
+	resp = c2.Post(session2Uri, option2)
 	t.Log("Cookie\t", resp.Body)
 	//close cookies
 	option2["cookies"] = false
 	c2.CloseCookies()
-	resp = c2.Post("http://192.168.56.102/s2.php", option2)
+	resp = c2.Post(session2Uri, option2)
 	t.Log("Cookie colse\t", resp.Body)
 }
 
@@ -139,20 +147,15 @@ func TestRedirect(t *testing.T) {
 		"form_params": map[string]interface{}{
 			"name": "aa",
 		},
-		"proxy":   "http://127.0.0.1:8888",
+		"proxy":   proxy,
 		"cookies": true,
 	}
 	option2 := map[string]interface{}{
 		"json": `{"key":"value"}`,
 	}
 	c2 := NewClient(v)
-	resp := c2.Post("http://192.168.56.102/login.php", nil)
-	fmt.Println(resp.Body, resp.Cookies())
-	resp = c2.Post("http://192.168.56.102/s2.php", option2)
+	resp := c2.Post(loginUri, nil)
+	option2["cookies"] = c2.GetCookies()
+	resp = c2.Post(session2Uri, option2)
 	t.Log("Cookie\t", resp.Body)
-	////close cookies
-	//option2["cookies"] = false
-	//c2.CloseCookies()
-	//resp = c2.Post("http://192.168.56.102/s2.php", option2)
-	//t.Log("Cookie colse\t", resp.Body)
 }
