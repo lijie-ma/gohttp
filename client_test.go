@@ -11,6 +11,7 @@ var (
 	uploadUri   = "http://192.168.56.102/upload.php"
 	session1    = "http://192.168.56.102/s1.php"
 	session2Uri = "http://192.168.56.102/s2.php"
+	authUri     = `http://192.168.56.102/auth.php`
 )
 
 func TestClient_Post(t *testing.T) {
@@ -158,4 +159,13 @@ func TestRedirect(t *testing.T) {
 	option2["cookies"] = c2.GetCookies()
 	resp = c2.Post(session2Uri, option2)
 	t.Log("Cookie\t", resp.Body)
+}
+
+func TestAuth(t *testing.T) {
+	v := map[string]interface{}{
+		AUTH: []string{"malijie", "pwd"},
+	}
+	c2 := NewClient(v)
+	resp := c2.Post(authUri, nil)
+	t.Log(resp.Body)
 }

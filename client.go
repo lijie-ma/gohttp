@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -41,15 +42,21 @@ var (
 )
 
 type Client struct {
-	config     map[string]interface{}
-	uri        *url.URL
-	httpClient *http.Client
-	errs       []error
+	config            map[string]interface{}
+	uri               *url.URL
+	p                 *sync.Pool
+	httpClient        *http.Client
+	currentHttpClient *http.Client
+	errs              []error
 }
 
 func NewClient(config map[string]interface{}) *Client {
 	c := &Client{errs: make([]error, 0, 2)}
 	c.configDefault(config)
+	c.setHttpClient()
+	c.p = &sync.Pool{New: func() interface{} {
+		return c.httpClient
+	}}
 	return c
 }
 
@@ -84,6 +91,50 @@ func (c *Client) defaultHeaders(config map[string]interface{}) {
 		}
 	}
 	config[HEADERS] = headers
+}
+
+func (c *Client) setHttpClient() {
+	c.httpClient = &http.Client{Timeout: 0 * time.Second}
+	if v, ok := c.config[TIMEOUT]; ok {
+		switch v.(type) {
+		case int:
+			c.httpClient.Timeout = time.Duration(v.(int)) * time.Second
+		case time.Duration:
+			c.httpClient.Timeout = v.(time.Duration)
+		default:
+			c.addError(errTypetimeout)
+		}
+	}
+	if rawurl, ok := c.config[PROXY]; ok {
+		proxy := func(_ *http.Request) (*url.URL, error) {
+			return url.Parse(rawurl.(string))
+		}
+		c.httpClient.Transport = &http.Transport{Proxy: proxy}
+	}
+}
+
+//option中的设置会覆盖全局的client中的设置
+// 并返回新设置client
+func (c *Client) getHttpClient(options map[string]interface{}) *http.Client {
+	c.currentHttpClient = c.p.Get().(*http.Client)
+	if v, ok := options[TIMEOUT]; ok {
+		switch v.(type) {
+		case int:
+			c.currentHttpClient.Timeout = time.Duration(v.(int)) * time.Second
+		case time.Duration:
+			c.currentHttpClient.Timeout = v.(time.Duration)
+		default:
+			c.addError(errTypetimeout)
+		}
+	}
+	if rawurl, ok := options[PROXY]; ok {
+		proxy := func(_ *http.Request) (*url.URL, error) {
+			return url.Parse(rawurl.(string))
+		}
+		c.currentHttpClient.Transport = &http.Transport{Proxy: proxy}
+	}
+
+	return c.currentHttpClient
 }
 
 // ResetErrors每次请求前重置 可以通过配置 reset_error 的值为 false 来禁止
@@ -135,9 +186,10 @@ func (c *Client) request(method string, uri string, options map[string]interface
 	if 0 < len(c.errs) {
 		return nil
 	}
-	c.httpClient = c.getHttpClient(options)
-	c.setCookies(c.httpClient, options)
-	response, err := c.httpClient.Do(request)
+	httpClient := c.getHttpClient(options)
+	c.setCookies(httpClient, options)
+	response, err := httpClient.Do(request)
+	c.p.Put(httpClient)
 	if nil != err {
 		c.addError(err)
 		return nil
@@ -149,8 +201,8 @@ func (c *Client) request(method string, uri string, options map[string]interface
 }
 
 func (c *Client) GetCookies() []*http.Cookie {
-	if nil != c.httpClient.Jar {
-		return c.httpClient.Jar.Cookies(c.uri)
+	if nil != c.currentHttpClient.Jar {
+		return c.currentHttpClient.Jar.Cookies(c.uri)
 	}
 	return nil
 }
@@ -191,28 +243,6 @@ func (c *Client) setCookies(client *http.Client, options map[string]interface{})
 			setFunc(client, v)
 		}
 	}
-}
-
-func (c *Client) getHttpClient(option map[string]interface{}) *http.Client {
-	clientHttp := &http.Client{Timeout: 0 * time.Second}
-	if v, ok := c.config[TIMEOUT]; ok {
-		switch v.(type) {
-		case int:
-			clientHttp.Timeout = time.Duration(v.(int)) * time.Second
-		case time.Duration:
-			clientHttp.Timeout = v.(time.Duration)
-		default:
-			c.addError(errTypetimeout)
-		}
-	}
-	if rawurl, ok := c.config[PROXY]; ok {
-		proxy := func(_ *http.Request) (*url.URL, error) {
-			return url.Parse(rawurl.(string))
-		}
-		clientHttp.Transport = &http.Transport{Proxy: proxy}
-	}
-
-	return clientHttp
 }
 
 func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
@@ -278,11 +308,11 @@ func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 }
 
 func (c *Client) setRequestHeader(r *http.Request, option map[string]interface{}) {
-	if v, ok := c.config[AUTH]; ok {
-		r.SetBasicAuth(v.([]string)[0], v.([]string)[1])
-	}
 	if h, ok := c.config[HEADERS]; ok {
 		r.Header = h.(http.Header)
+	}
+	if v, ok := c.config[AUTH]; ok {
+		r.SetBasicAuth(v.([]string)[0], v.([]string)[1])
 	}
 }
 
@@ -385,14 +415,6 @@ func (c *Client) Post(uri string, options map[string]interface{}) *Response {
 //Get 如果出错，则返回nil， 可以通过 GetErrors 拿到错误信息
 func (c *Client) Get(uri string, options map[string]interface{}) *Response {
 	return c.request("GET", uri, options)
-}
-
-func (c *Client) Put() {
-
-}
-
-func (c *Client) Delete() {
-
 }
 
 func (c *Client) Head(uri string, options map[string]interface{}) *Response {
