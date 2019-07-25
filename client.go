@@ -421,6 +421,18 @@ func (c *Client) Head(uri string, options map[string]interface{}) *Response {
 	return c.request("HEAD", uri, options)
 }
 
+func Post(uri string, options map[string]interface{}) *Response {
+	return NewClient(map[string]interface{}{}).Post(uri, options)
+}
+
+func Get(uri string, options map[string]interface{}) *Response {
+	return NewClient(map[string]interface{}{}).Get(uri, options)
+}
+
+func Head(uri string, options map[string]interface{}) *Response {
+	return NewClient(map[string]interface{}{}).Head(uri, options)
+}
+
 func defaultUserAgent() string {
 	return "gohttp/" + client_version + "  golang " + runtime.Version()
 }

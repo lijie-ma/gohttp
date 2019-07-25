@@ -52,6 +52,17 @@ func TestClient_Post(t *testing.T) {
 	t.Log(resp.Body)
 }
 
+func TestPost(t *testing.T) {
+	v := map[string]interface{}{
+		"json": map[string]interface{}{
+			"key": "ivideo_index",
+		},
+		"proxy": proxy,
+	}
+	resp := Post(jsonUri, v)
+	t.Log(resp.Body)
+}
+
 func TestBaseUri(t *testing.T) {
 	v2 := map[string]interface{}{
 		"json": map[string]interface{}{
@@ -169,3 +180,4 @@ func TestAuth(t *testing.T) {
 	resp := c2.Post(authUri, nil)
 	t.Log(resp.Body)
 }
+
