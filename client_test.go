@@ -6,23 +6,45 @@ import (
 
 var (
 	proxy       = "http://127.0.0.1:8888"
-	loginUri    = "http://192.168.56.102/login.php"
-	jsonUri     = "http://192.168.56.102/json.php"
-	uploadUri   = "http://192.168.56.102/upload.php"
-	session1    = "http://192.168.56.102/s1.php"
-	session2Uri = "http://192.168.56.102/s2.php"
-	authUri     = `http://192.168.56.102/auth.php`
+	postUri     = "https://192.168.56.100/post.php"
+	loginUri    = "http://192.168.56.100/login.php"
+	uploadUri   = "http://192.168.56.100/upload.php"
+	session1    = "http://192.168.56.100/session1.php"
+	session2Uri = "http://192.168.56.100/session2.php"
+	authUri     = `http://192.168.56.100/auth.php`
+
+	jsonUri = "https://192.168.56.100/json.php"
 )
+
+func TestHttp2(t *testing.T) {
+	v := map[string]interface{}{
+		"form_params": map[string]interface{}{
+			"key": "ivideo_index",
+		},
+		"http2": true,
+	}
+	c := NewClient(v)
+	resp := c.Post(postUri, nil)
+	if nil == resp {
+		t.Log(c.GetErrors())
+		return
+	}
+	t.Log(resp.Body)
+}
 
 func TestClient_Post(t *testing.T) {
 	v := map[string]interface{}{
 		"form_params": map[string]interface{}{
 			"key": "ivideo_index",
 		},
-		"proxy": proxy,
+		//"proxy": proxy,
 	}
 	c := NewClient(v)
-	resp := c.Post("http://10.16.155.5:8090/cms/getone", nil)
+	resp := c.Post(postUri, nil)
+	if nil == resp {
+		t.Log(c.GetErrors())
+		return
+	}
 	t.Log(resp.Body)
 
 	v2 := map[string]interface{}{
@@ -57,10 +79,13 @@ func TestPost(t *testing.T) {
 		"json": map[string]interface{}{
 			"key": "ivideo_index",
 		},
-		"proxy": proxy,
 	}
 	resp := Post(jsonUri, v)
-	t.Log(resp.Body)
+	if nil == resp {
+		t.Error("errors", Errors())
+	} else {
+		t.Log(resp.Body)
+	}
 }
 
 func TestBaseUri(t *testing.T) {
@@ -86,7 +111,7 @@ func TestOption(t *testing.T) {
 		},
 	}
 	c := NewClient(v)
-	resp := c.Post("http://10.16.155.5:8090/cms/getone", option)
+	resp := c.Post(postUri, option)
 	t.Log("option\t", resp.Body)
 
 	v2 := map[string]interface{}{
@@ -178,6 +203,9 @@ func TestAuth(t *testing.T) {
 	}
 	c2 := NewClient(v)
 	resp := c2.Post(authUri, nil)
+	if nil == resp {
+		t.Log(c2.GetErrors())
+		return
+	}
 	t.Log(resp.Body)
 }
-

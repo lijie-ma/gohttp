@@ -83,10 +83,11 @@ QUERY           = `query`
 | auth | []string | [name, password] | |
 | cookies | bool &vert; []*http.Cookies | map[string]interface{}{"cookies":true} or <br>map[string]interface{}{"cookies":[]*http.Cookies{}}| true 表示开启cookie， http.cookies 表示本次请求要传送的cookies|
 | timeout | int &vert; time.Duration |  | 超时时间，如果传递int类型，单位是秒, 默认不限制 |
-| form_params | map[string]interface{} |  |关联数组由表单字段键值对构成，每个字段值可以是一个字符串或一个包含字符串元素的数组。 当没有准备 "Content-Type" 报文头的时候，将设置为 "application/x-www-form-urlencoded" |
+| form_params |url.Value &vert; map[string]interface{} |  |关联数组由表单字段键值对构成，每个字段值可以是一个字符串或一个包含字符串元素的数组。 当没有准备 "Content-Type" 报文头的时候，将设置为 "application/x-www-form-urlencoded" |
 | headers |[]map[string]string &vert; http.Header |  |默认的设置有ua、content-type |
 | proxy | string |  | reqeust时 使用的代理 |
-| query | string |  | 会被拼接到url后，目前仅支持string类型 |
+| query | string &vert; url.Value &vert; map[string]interface{} |  | 会被拼接到url后，目前仅支持string类型 |
 | json | string &vert; interface{} |  | interface{}类型会调用json.Marshal， content-type 会设置为application/json |
 | multipart | map[string]interface{} |  | 参考类domo 中的multipart[文件上传](#file-upload)  |
 | base_uri | string |  | |
+| http2 | bool |  |默认false， 当使用https时，会优先尝试http2 |

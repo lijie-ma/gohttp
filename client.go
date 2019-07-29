@@ -2,9 +2,11 @@ package gohttp
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"github.com/lijie-ma/utility"
+	"golang.org/x/net/http2"
 	"golang.org/x/net/publicsuffix"
 	"io"
 	"mime/multipart"
@@ -15,12 +17,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 )
 
 const (
-	client_version  = "0.0.1"
+	client_version  = "0.1.1"
 	COOKIES         = `cookies`
 	HEADERS         = `headers`
 	AUTH            = `auth`
@@ -32,6 +33,7 @@ const (
 	PROXY           = `proxy`
 	TIMEOUT         = `timeout`
 	QUERY           = `query`
+	HTTP2           = `http2`
 )
 
 var (
@@ -44,21 +46,16 @@ var (
 )
 
 type Client struct {
-	config            map[string]interface{}
-	uri               *url.URL
-	p                 *sync.Pool
-	httpClient        *http.Client
-	currentHttpClient *http.Client
-	errs              []error
+	config     map[string]interface{}
+	uri        *url.URL
+	httpClient *http.Client
+	errs       []error
 }
 
 func NewClient(config map[string]interface{}) *Client {
 	c := &Client{errs: make([]error, 0, 2)}
 	c.configDefault(config)
 	c.setHttpClient()
-	c.p = &sync.Pool{New: func() interface{} {
-		return c.httpClient
-	}}
 	return c
 }
 
@@ -105,38 +102,71 @@ func (c *Client) setHttpClient() {
 			c.httpClient.Timeout = v.(time.Duration)
 		default:
 			c.addError(errTypetimeout)
+			return
 		}
 	}
+	c.setProxy(c.httpClient)
+	c.setHttp2(c.httpClient)
+}
+
+func (c *Client) setHttp2(client *http.Client) {
+	isHttp2, ok := c.config[HTTP2]
+	if !ok {
+		return
+	}
+	istrue, ok := isHttp2.(bool)
+	if !ok || !istrue {
+		return
+	}
+	tlsClientConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	if nil == client.Transport {
+		client.Transport = &http2.Transport{
+			TLSClientConfig: tlsClientConfig,
+			AllowHTTP:       false,
+		}
+		return
+	}
+	//程序会尝试使用http2
+	transport, ok := client.Transport.(*http.Transport)
+	if ok {
+		transport.TLSClientConfig = tlsClientConfig
+		http2.ConfigureTransport(transport)
+	}
+}
+
+func (c *Client) setProxy(client *http.Client) {
 	if rawurl, ok := c.config[PROXY]; ok {
 		proxy := func(_ *http.Request) (*url.URL, error) {
 			return url.Parse(rawurl.(string))
 		}
-		c.httpClient.Transport = &http.Transport{Proxy: proxy}
+		if nil == client.Transport {
+			client.Transport = &http.Transport{Proxy: proxy}
+			return
+		}
+		transport, ok := client.Transport.(*http.Transport)
+		if ok {
+			transport.Proxy = proxy
+		}
 	}
 }
 
-//option中的设置会覆盖全局的client中的设置
-// 并返回新设置client
-func (c *Client) getHttpClient(options map[string]interface{}) *http.Client {
-	c.currentHttpClient = c.p.Get().(*http.Client)
-	if v, ok := options[TIMEOUT]; ok {
-		switch v.(type) {
-		case int:
-			c.currentHttpClient.Timeout = time.Duration(v.(int)) * time.Second
-		case time.Duration:
-			c.currentHttpClient.Timeout = v.(time.Duration)
-		default:
-			c.addError(errTypetimeout)
-		}
+func (c *Client) tls(client *http.Client) {
+	if c.uri.Scheme != `https` {
+		return
 	}
-	if rawurl, ok := options[PROXY]; ok {
-		proxy := func(_ *http.Request) (*url.URL, error) {
-			return url.Parse(rawurl.(string))
+	if nil == client.Transport {
+		client.Transport = &http.Transport{}
+	}
+	transport, ok := client.Transport.(*http.Transport)
+	if ok {
+		transport.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
 		}
-		c.currentHttpClient.Transport = &http.Transport{Proxy: proxy}
+		http2.ConfigureTransport(transport)
 	}
 
-	return c.currentHttpClient
 }
 
 // ResetErrors每次请求前重置 可以通过配置 reset_error 的值为 false 来禁止
@@ -144,7 +174,7 @@ func (c *Client) ResetErrors() {
 	c.resetErrors(nil)
 }
 
-func (c *Client) resetErrors(option map[string]interface{}) {
+func (c *Client) resetErrors(options map[string]interface{}) {
 	tempFunc := func(v interface{}) bool {
 		switch v.(type) {
 		case bool:
@@ -153,7 +183,7 @@ func (c *Client) resetErrors(option map[string]interface{}) {
 		return false
 	}
 	tmpkey := "reset_error"
-	if v, ok := option[tmpkey]; ok {
+	if v, ok := options[tmpkey]; ok {
 		if tempFunc(v) {
 			c.errs = c.errs[:0]
 		}
@@ -188,10 +218,9 @@ func (c *Client) request(method string, uri string, options map[string]interface
 	if 0 < len(c.errs) {
 		return nil
 	}
-	httpClient := c.getHttpClient(options)
-	c.setCookies(httpClient, options)
-	response, err := httpClient.Do(request)
-	c.p.Put(httpClient)
+	c.tls(c.httpClient)
+	c.setCookies(c.httpClient, options)
+	response, err := c.httpClient.Do(request)
 	if nil != err {
 		c.addError(err)
 		return nil
@@ -203,8 +232,8 @@ func (c *Client) request(method string, uri string, options map[string]interface
 }
 
 func (c *Client) GetCookies() []*http.Cookie {
-	if nil != c.currentHttpClient.Jar {
-		return c.currentHttpClient.Jar.Cookies(c.uri)
+	if nil != c.httpClient.Jar {
+		return c.httpClient.Jar.Cookies(c.uri)
 	}
 	return nil
 }
@@ -248,22 +277,7 @@ func (c *Client) setCookies(client *http.Client, options map[string]interface{})
 }
 
 func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
-	queryStr := ``
-	if v, ok := option[QUERY]; ok {
-		switch v.(type) {
-		case string:
-			queryStr = v.(string)
-		default:
-			c.addError(errTypeQuery)
-		}
-	} else if v, ok := c.config[QUERY]; ok {
-		switch v.(type) {
-		case string:
-			queryStr = v.(string)
-		default:
-			c.addError(errTypeQuery)
-		}
-	}
+	queryStr := c.queryString(option)
 	if 0 == strings.Index(uri, `http://`) || 0 == strings.Index(uri, `https://`) {
 		uriParse, err := url.Parse(uri)
 		if nil != err {
@@ -307,6 +321,37 @@ func (c *Client) rebuildURI(uri string, option map[string]interface{}) string {
 	return c.uri.Scheme + `://` + c.uri.Host + `/` + strings.TrimLeft(uri, `/`)
 }
 
+func (c *Client) queryString(options map[string]interface{}) string {
+	queryFunc := func(query interface{}) (string, error) {
+		queryStr := ``
+		var err error
+		switch query.(type) {
+		case string:
+			queryStr = query.(string)
+		case url.Values:
+			queryStr = query.(url.Values).Encode()
+		case map[string]interface{}:
+			queryStr = utility.HttpBuildQuery(query.(map[string]interface{}))
+		default:
+			err = errTypeQuery
+		}
+		return queryStr, err
+	}
+	queryStr := ``
+	var e error
+	if v, ok := options[QUERY]; ok {
+		queryStr, e = queryFunc(v)
+	} else if v, ok := c.config[QUERY]; ok {
+		queryStr, e = queryFunc(v)
+	}
+	if nil != e {
+		c.addError(errTypeQuery)
+		return ``
+	}
+	return queryStr
+
+}
+
 func (c *Client) setRequestHeader(r *http.Request, option map[string]interface{}) {
 	if h, ok := c.config[HEADERS]; ok {
 		r.Header = h.(http.Header)
@@ -339,6 +384,12 @@ func (c *Client) requestBody(option map[string]interface{}) io.Reader {
 	if v, ok := option["form_params"]; ok {
 		h := c.config["headers"].(http.Header)
 		h.Set("Content-Type", "application/x-www-form-urlencoded")
+		switch v.(type) {
+		case string:
+			return strings.NewReader(v.(string))
+		case url.Values:
+			return strings.NewReader(v.(url.Values).Encode())
+		}
 		return strings.NewReader(utility.HttpBuildQuery(v.(map[string]interface{})))
 	}
 	if v, ok := option[MULTIPART]; ok {
@@ -431,6 +482,10 @@ func Get(uri string, options map[string]interface{}) *Response {
 
 func Head(uri string, options map[string]interface{}) *Response {
 	return defaultClient.Head(uri, options)
+}
+
+func Errors() []error {
+	return defaultClient.GetErrors()
 }
 
 func defaultUserAgent() string {
