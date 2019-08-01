@@ -94,10 +94,10 @@ func TestBaseUri(t *testing.T) {
 			"key": "ivideo_index",
 		},
 		"proxy":    proxy,
-		"base_uri": "http://192.168.56.102/",
+		"base_uri": "http://192.168.56.100/",
 	}
 	c2 := NewClient(v2)
-	resp := c2.Post("/test.php", nil)
+	resp := c2.Post("/post.php", nil)
 	t.Log("base_uri\t", resp.Body)
 }
 
@@ -207,5 +207,6 @@ func TestAuth(t *testing.T) {
 		t.Log(c2.GetErrors())
 		return
 	}
+
 	t.Log(resp.Body)
 }
