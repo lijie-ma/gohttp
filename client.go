@@ -9,7 +9,6 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/publicsuffix"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
@@ -209,11 +208,7 @@ func (c *Client) addError(e error) {
 
 func (c *Client) request(method string, uri string, options map[string]interface{}) *Response {
 	c.resetErrors(options)
-	requBody := c.requestBody(options)
-	if nil != requBody{
-		requBody = ioutil.NopCloser(requBody) // 能够自动关闭
-	}
-	request, err := http.NewRequest(method, c.rebuildURI(uri, options), requBody)
+	request, err := http.NewRequest(method, c.rebuildURI(uri, options), c.requestBody(options))
 	if nil != err {
 		c.addError(err)
 		return nil
