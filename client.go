@@ -149,6 +149,8 @@ func (c *Client) setProxy(client *http.Client) {
 		if ok {
 			transport.Proxy = proxy
 		}
+	} else {
+		c.httpClient.Transport = &http.Transport{Proxy: http.ProxyFromEnvironment}
 	}
 }
 
